@@ -1,0 +1,143 @@
+
+    스프링 시큐리티 - 아키텍쳐
+
+        SecurityContextHold, Authentication
+
+        Principal - 사용자 정보
+        Principal 정보를 Authentication 객체 안에 담아 관리
+
+        Authentication -> SecurityContext -> SecurityContextHolder 이러한 순서로 감싸서 사용
+
+
+        Authentication
+            Principal과 GrantAuthority 제공.
+        Principal
+            사용자 정보
+            Principal 정보를 Authentication 객체 안에 담아 관리
+            UserDetailsService에서 리턴한 그 객체.
+            객체는 UserDetails 타입.
+
+        SecurityContext 기본적으로 ThreadLocal을 사용한다
+            ThreadLocal - 한 쓰레드 내에서 공유하는 저장소
+        GrantAuthority:
+            “ROLE_USER”, “ROLE_ADMIN”등 Principal이 가지고 있는 “권한”을 나타낸다.
+            인증 이후, 인가 및 권한 확인할 때 이 정보를 참조한다.
+
+        User
+            유저 정보 객체
+        UserDetails
+            애플리케이션이 가지고 있는 유저 정보와 스프링 시큐리티가 사용하는 Authentication 객체 사이의 어댑터.
+        UserDetailsService
+            유저 정보를 UserDetails 타입으로 가져오는 DAO (Data Access Object) 인터페이스.
+
+        서블릿 기반 : 어떤 요청이 하나 들어왔을 때 그 요청이 처리되는 쓰레드는 async한 기능을 사용하지 않는 이상 동일한 쓰레드가 그 요청을 처리한다
+        서블릿 컨테이너 기본전략 request per thread
+
+
+         AuthenticationManager와 Authentication
+             스프링 시큐리티에서 인증(Authentication)은 AuthenticationManager가 한다.
+             SecurityContextHolder는 인증 정보를 담고 있는 곳
+             ProviderManager 보통으로 사용한다
+             AuthenticationProvider들을 사용해서 적절한 인증 방법으로 처리한다, 만약 없다면 Parent ProviderManager 사용
+
+             Authentication
+                 Principal: UserDetailsService에서 리턴한 그 객체 (User)
+                 Credentials:
+                 GrantedAuthorities
+
+         Spring Security : Authentication Architecture
+            https://springbootdev.com/2017/08/23/spring-security-authentication-architecture/
+
+        ThreadLocal
+            Java.lang 패키지에서 제공하는 쓰레드 범위 변수. 즉, 쓰레드 수준의 데이터 저장소.
+            같은 쓰레드 내에서만 공유.
+            따라서 같은 쓰레드라면 해당 데이터를 메소드 매개변수로 넘겨줄 필요 없음.
+            SecurityContextHolder의 기본 전략.
+
+        Authencation과 SecurityContextHolder
+            크게 2가지 fileter가 authencation 객체를 SecurityContextHolder 넣어준다
+            UsernamePasswordAuthenticationFilter
+                요청마다 기존에 캐싱하고 있는 SecurityContext를 복구 하려고 한다
+                요청이 끝나면 SecurityContext 비워준다
+                폼 인증을 처리하는 시큐리티 필터
+                인증된 Authentication 객체를 SecurityContextHolder에 넣어주는 필터
+                SecurityContextHolder.getContext().setAuthentication(authentication)
+
+            SecurityContextPersisenceFilter
+                SecurityContext를 HTTP session에 캐시(기본 전략)하여 여러 요청에서 Authentication을 공유할 수 있 공유하는 필터.
+                SecurityContextRepository를 교체하여 세션을 HTTP session이 아닌 다른 곳에 저장하는 것도 가능하다.
+
+        스프링 시큐리티가 제공하는 필터들
+            WebAsyncManagerIntergrationFilter
+            SecurityContextPersistenceFilter
+            HeaderWriterFilter
+            CsrfFilter
+            LogoutFilter
+            UsernamePasswordAuthenticationFilter
+            DefaultLoginPageGeneratingFilter
+            DefaultLogoutPageGeneratingFilter
+            BasicAuthenticationFilter
+            RequestCacheAwareFtiler
+            SecurityContextHolderAwareReqeustFilter
+            AnonymouseAuthenticationFilter
+            SessionManagementFilter
+            ExeptionTranslationFilter
+            FilterSecurityInterceptor
+
+        이 모든 필터는 FilterChainProxy가 호출한다.
+            getFilters - chain의 목록을 가져온다, SecurityFilterChain의 요청이 url패턴이 match되면 matching하는 필터 체인을 가져온다
+            필터들을 순회하면서 실행
+            FilterChainProxy가 필터 목록을 순차적으로 실행 시켜 준다
+            Custom한 SecurityConfig가 SecurityFilterChain을 만드는데 사용된다
+
+        DelegatingFilterProxy
+            일반적인 서블릿 필터.
+            서블릿 필터 처리를 스프링에 들어있는 빈으로 위임하고 싶을 때 사용하는 서블릿 필터.
+            어떤 bean에서 위임할지 -> 타겟 빈 이름을 설정한다.
+            스프링 부트 없이 스프링 시큐리티 설정할 때는 AbstractSecurityWebApplicationInitializer를 사용해서 등록.
+            스프링 부트를 사용할 때는 자동으로 등록 된다. (SecurityFilterAutoConfiguration)
+
+        FilterChainProxy
+            보통 “springSecurityFilterChain” 이라는 이름의 빈으로 등록된다.
+
+
+            서블릿 필터                                    시큐리티 필터 목록
+               |                                               Filter
+               |                                               Filter
+            DelegatingFilterProxy -> FilterChainProxy ->       ...
+               |
+               |
+            서블릿 필터
+
+        AccessDecisionManager
+            - 여러개의 voter를 가질 수 있음
+                voter를 거치면서 유효한지 확인을 한다
+            인가를 할때 사용
+            AffirmativeBased: 여러 Voter중에 한명이라도 허용하면 허용. 기본 전략.
+            ConsensusBased: 다수결
+            UnanimousBased: 만장일치
+
+            AccessDecisionVoter
+                ACCESS_GRANTED (허용) 1, ACCESS_ABSTAIN 0 (모르겠음), ACCESS_DENIED -1 (거부)
+                해당 Authentication이 특정한 Object에 접근할 때 필요한 ConfigAttributes를 만족하는지 확인한다.
+                WebExpressionVoter: 웹 시큐리티에서 사용하는 기본 구현체, ROLE_Xxxx가 매치하는지 확인.
+                RoleHierarchyVoter: 계층형 ROLE 지원. ADMIN > MANAGER > USER
+
+        FilterSecurityInterceptor
+            AccessDecisionManager를 사용하여 Access Control 또는 예외 처리 하는 필터.
+            대부분의 경우 FilterChainProxy에 제일 마지막 필터로 들어있다.
+
+        ExceptionTranslationFilter
+            필터 체인에서 발생하는 AccessDeniedException과 AuthenticationException을 처리하는 필터
+
+            AuthenticationException 발생 시
+                AuthenticationEntryPoint 실행
+                AbstractSecurityInterceptor 하위 클래스(예, FilterSecurityInterceptor)에서 발생하는 예외만 처리.
+
+            AccessDeniedException 발생 시
+                익명 사용자라면 AuthenticationEntryPoint 실행
+                익명 사용자가 아니면 AccessDeniedHandler에게 위임
+
+        Security 설정 파일 webSecurity 만든다, WebSecurity로 filter chain을 만든다
+
+        파비콘의 경우 시큐리티 걸린다. 따라서 로그인 요청도 보낸다. 이러한 요청들로 서버리소스 낭비 따라서 static 리소스 요청은 ignore 할 수 있음

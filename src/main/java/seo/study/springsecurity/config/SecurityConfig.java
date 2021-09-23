@@ -3,6 +3,11 @@ package seo.study.springsecurity.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.AccessDecisionManager;
+import org.springframework.security.access.AccessDecisionVoter;
+import org.springframework.security.access.expression.SecurityExpressionHandler;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
+import org.springframework.security.access.vote.AffirmativeBased;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -10,7 +15,12 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.access.expression.DefaultWebSecurityExpressionHandler;
+import org.springframework.security.web.access.expression.WebExpressionVoter;
 import seo.study.springsecurity.account.AccountService;
+
+import java.util.Arrays;
+import java.util.List;
 
 // 설정 custom
 @Configuration
@@ -21,16 +31,45 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     //@Autowired
     //AccountService accountService;
 
+    //AccessDecisionManager 커스터마이징 // 계층형 role 만드는 방법
+    public AccessDecisionManager accessDecisionManager(){
+        // handler setting
+        RoleHierarchyImpl roleHierarchy = new RoleHierarchyImpl();
+        roleHierarchy.setHierarchy("ROLE_ADMIN > ROLE_USER");
+
+        DefaultWebSecurityExpressionHandler handler = new DefaultWebSecurityExpressionHandler();
+        handler.setRoleHierarchy(roleHierarchy);
+
+        WebExpressionVoter webExpressionVoter = new WebExpressionVoter();
+        webExpressionVoter.setExpressionHandler(handler);
+
+        List<AccessDecisionVoter<? extends Object>> voters = Arrays.asList(webExpressionVoter);
+        return new AffirmativeBased(voters);
+    }
+
+    // expression handler 커스터 마이징
+    public SecurityExpressionHandler accessDecisionHandler(){
+
+        RoleHierarchyImpl roleHierarchy = new RoleHierarchyImpl();
+        roleHierarchy.setHierarchy("ROLE_ADMIN > ROLE_USER");
+
+        DefaultWebSecurityExpressionHandler handler = new DefaultWebSecurityExpressionHandler();
+        handler.setRoleHierarchy(roleHierarchy);
+
+        return handler;
+    }
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
                 .mvcMatchers("/","/info","/account/**").permitAll()
                 .mvcMatchers("/admin").hasRole("ADMIN")
+                .mvcMatchers("/user").hasRole("USER")
                 .anyRequest().authenticated()
-                .and()
-            .formLogin()
-                .and()
-            .httpBasic();
+                //.accessDecisionManager(accessDecisionManager()) // manager 쓰는 경우
+                .expressionHandler(accessDecisionHandler()); // handler 쓰는 경우
+        http.formLogin();
+        http.httpBasic();
     }
     // user 정보 설정 가능
     /*

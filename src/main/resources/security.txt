@@ -141,3 +141,55 @@
         Security 설정 파일 webSecurity 만든다, WebSecurity로 filter chain을 만든다
 
         파비콘의 경우 시큐리티 걸린다. 따라서 로그인 요청도 보낸다. 이러한 요청들로 서버리소스 낭비 따라서 static 리소스 요청은 ignore 할 수 있음
+
+        WebAsyncManagerIntegrationFilter는 async handler 지원하는 기능, 일반적으로는 ThreadLocal 사용하지만 async 기능시 다른 쓰레드 사용하게 된다
+        따라서 다른 쓰레드에도 동일한 Security Context를 사용할 수 있도록 지원해주는 필터
+
+            PreProcess: SecurityContext를 설정한다.
+            Callable: 비록 다른 쓰레드지만 그 안에서는 동일한 SecurityContext를 참조할 수 있다.
+            PostProcess: SecurityContext를 정리(clean up)한다.
+
+        SecurityContextPersistenceFilter
+            SecurityContextRepository를 사용해서 기존의 SecurityContext를 읽어오거나 초기화 한다.
+            기본으로 사용하는 전략은 HTTP Session을 사용한다.
+
+    시큐리티 관련 헤더 추가하는 필터: HeaderWriterFilter (직접 설정 x)
+
+        응답 헤더에 시큐리티 관련 헤더를 추가해주는 필터
+            XContentTypeOptionsHeaderWriter: 마임 타입 스니핑 방어. // 브라우저들이 content 분석하고 실행 불가능한 마임 타입을 실행하려고 했을 때 발생
+            XXssProtectionHeaderWriter: 브라우저에 내장된 XSS 필터 적용. // XSS 방어, 브라우저 XSS 기본 필터 사용
+            CacheControlHeadersWriter: 캐시 히스토리 취약점 방어.
+            HstsHeaderWriter: HTTPS로만 소통하도록 강제.
+            XFrameOptionsHeaderWriter: clickjacking 방어.
+
+        Cache-Control: no-cache, no-store, max-age=0, must-revalidate // Cache 사용하지 않도록 // 동적인 page는 민감한 정보를 노출할 수 있음 따라서 Cache정보 비운다
+        Content-Language: en-US
+        Content-Type: text/html;charset=UTF-8 // (1)일 경우 반드시 content type으로만 렌더링
+        Date: Sun, 04 Aug 2019 16:25:10 GMT
+        Expires: 0
+        Pragma: no-cache
+        Transfer-Encoding: chunked
+        X-Content-Type-Options: nosniff // (1)
+        X-Frame-Options: DENY // (3) clickjacking 방어
+        X-XSS-Protection: 1; mode=block // (2) 1이 XSS 기본 필터 방어
+
+    CsrfFilter : Csrf 어택 방지 필터
+        의도한 사용자만 리소스를 변경할 수 있도록 허용하는 필터, CSRF 토큰을 사용하여 방지.
+
+        CSRF : 인증된 유저의 계정을 사용해 악의적인 변경 요청을 만들어 보내는 기법.
+
+        CORS를 사용할 때 특히 주의 해야 함.
+            타 도메인에서 보내오는 요청을 허용하기 때문에...
+
+        필터 - 리소스를 변경할만한 요청은 CSRF 토큰을 보낸다. CSRF 토큰 일치하는 지 확인한다
+
+    LogoutFilter : 로그아웃 처리 필터
+        CompositeLogoutHandler로 로그아웃 handler 들고 있음
+        여러 LogoutHandler를 사용하여 로그아웃시 필요한 처리를 하며 이후에는 LogoutSuccessHandler를 사용하여 로그아웃 후처리를 한다.
+
+        LogoutHandler
+            CsrfLogoutHandler
+            SecurityContextLogoutHandler
+
+        LogoutSuccessHandler
+            SimplUrlLogoutSuccessHandler

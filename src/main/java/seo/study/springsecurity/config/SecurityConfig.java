@@ -1,6 +1,7 @@
 package seo.study.springsecurity.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDecisionManager;
@@ -10,8 +11,10 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.access.vote.AffirmativeBased;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -58,11 +61,21 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
         return handler;
     }
+    // 특정 자원에 security 적용하고 싶지 않을 때 사용
+    // 정적인 resource 사용 권장
+    @Override
+    public void configure(WebSecurity web) throws Exception {
+        // ignore 가능
+        //web.ignoring().mvcMatchers("/favicon.ico");
 
+        // spring boot static resource 무시
+        web.ignoring().requestMatchers(PathRequest.toStaticResources().atCommonLocations());
+    }
+    // 동적 resource 사용 권장
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
-                .mvcMatchers("/","/info","/account/**").permitAll()
+                .mvcMatchers("/","/info","/account/**","/signup").permitAll()
                 .mvcMatchers("/admin").hasRole("ADMIN")
                 .mvcMatchers("/user").hasRole("USER")
                 .anyRequest().authenticated()
@@ -70,6 +83,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .expressionHandler(accessDecisionHandler()); // handler 쓰는 경우
         http.formLogin();
         http.httpBasic();
+
+        // http LogoutFilter 확인해보기
+        http.logout()
+                .logoutSuccessUrl("/"); // logout 성공시 direct page default는 login
+                 //.logoutUrl("/logout") // logout을 하는 url mapping default logout
+                 // logoutSuccessHandler, addLogoutHandler 등 handler 구현 가능
+                 // 쿠키 기반의 로그인 방식일 때 deleteCookies()
+
+        // SecurityContextHolder 전략 바꿈,  MODE_INHERITABLETHREADLOCAL는 하위 thread는 security context 공유
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+
     }
     // user 정보 설정 가능
     /*
@@ -108,4 +132,5 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         // default bcrypt
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
+
 }

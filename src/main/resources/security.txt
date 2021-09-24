@@ -165,7 +165,7 @@
         Cache-Control: no-cache, no-store, max-age=0, must-revalidate // Cache 사용하지 않도록 // 동적인 page는 민감한 정보를 노출할 수 있음 따라서 Cache정보 비운다
         Content-Language: en-US
         Content-Type: text/html;charset=UTF-8 // (1)일 경우 반드시 content type으로만 렌더링
-        Date: Sun, 04 Aug 2019 16:25:10 GMT
+        Date:
         Expires: 0
         Pragma: no-cache
         Transfer-Encoding: chunked
@@ -179,7 +179,7 @@
         CSRF : 인증된 유저의 계정을 사용해 악의적인 변경 요청을 만들어 보내는 기법.
 
         CORS를 사용할 때 특히 주의 해야 함.
-            타 도메인에서 보내오는 요청을 허용하기 때문에...
+            타 도메인에서 보내오는 요청을 허용하기 때문에
 
         필터 - 리소스를 변경할만한 요청은 CSRF 토큰을 보낸다. CSRF 토큰 일치하는 지 확인한다
 
@@ -193,3 +193,85 @@
 
         LogoutSuccessHandler
             SimplUrlLogoutSuccessHandler
+
+    UsernamePasswordAuthenticationFilter : 폼 인증 처리 필터
+        폼 로그인을 처리하는 인증 필터
+            사용자가 폼에 입력한 username과 password로 Authentcation(UsernamePasswordAuthenticationToken)을 만들고 AuthenticationManager를 사용하여 인증을 시도한다.
+            AuthenticationManager (ProviderManager)는 여러 AuthenticationProvider를 사용하여 인증을 시도하는데, 그 중에 DaoAuthenticationProvider는 UserDetailsServivce를 사용하여 UserDetails 정보를 가져와 사용자가 입력한 password와 비교한다
+
+    Default(Login/Logout)PageGeneratingFilter 로그인/로그아웃 폼 페이지 생성 필터
+        파라미터 이름을 바꿀 수 있음(크게 의미 x)
+        커스텀한 로그인 페이지를 따로 설정하여 커스터 마이징 가능( 이때는 필터 등록되지 않음) http.loginPage
+
+    Basic 인증 처리 필터 : BasicAuthenticationFilter
+        Basic 인증(stateless)
+            요청 헤더에 username과 password를 실어 보내면 서버 or 브라우저가 그 값을 읽어 인증하는 방식
+            Authorization: Basic (username:pssword) base64로 인코딩 한것
+            브라우저 기반 요청이 클라이언트의 요청을 처리할 때 사용
+            보안에 취약 반드시 https를 사용
+
+    RequsetCacheAwareFilter : 요청 캐시 필터
+        현재 요청과 관련 있는 캐시된 요청이 있는지 찾아서 적용하는 필터.
+        session에 캐시한다
+        적용되는 process : 예외가 발생해서 로그인 처리 page -> 사용자 로그인 -> (캐시된 요청) 원래 사용자가 가고 싶은 page 보여준다
+            캐시된 요청이 없다면, 현재 요청 처리
+            캐시된 요청이 있다면, 해당 캐시된 요청 처리
+
+    SecurityContextHolderAwareRequestFilter : 시큐리티 관련 서블릿 스팩 구현 필터
+
+        시큐리티 관련 서블릿 API를 구현해주는 필터(서블릿 API 지원)
+            HttpServletRequest#authenticate(HttpServletResponse)
+            HttpServletRequest#login(String, String)
+            HttpServletRequest#logout()
+            AsyncContext#start(Runnable)
+
+    AnonymousAuthenticationFilter : 익명 인증 필터
+        아무도 인증을 하지 않을 요청일때 익명 객체를 만들어 넣어준다
+        null object pattern null을 대변하는 object를 만들어서 사용하는 pattern
+        현재 SecurityContext에 Authentication이 null이면 “익명 Authentication”을 만들어 넣어주고, null이 아니면 아무일도 하지 않는다.
+
+    SessionManagementFilter : 세션 관리 필터
+        주요한 기능
+            세션 변조 방지 전략 설정: sessionFixation
+                세션 변조란 ? 공격자가 로그인을 통해 session 정보를 받아온다. 쿠키에 들어있는 session id를 공격 대상에게 보낸다.
+                공격대상은 로그인을 하고 웹 서버 입장에서는 session id가 동일하므로 공격대상의 정보 탈취당한다
+                spring security 서블릿 컨테이너 마다 약간 다름
+                    migrateSession (서블릿 3.0- 컨테이너 사용시 기본값) 인증이되었을 때 새로운 session을 만들고 기존의 session 안의 일부 값을 복사해온다
+                    changeSessionId (서브릿 3.1+ 컨테이너 사용시 기본값) session id만 바꿈
+
+            유효하지 않은 세션을 리다이렉트 시킬 URL 설정
+            동시성 제어: maximumSessions
+            세션 생성 전략: sessionCreationPolicy
+                IF_REQUIRED 필요하면 만든다(기본 값)
+                NEVER  spring security에서 만들지는 않으나 기존에 session이 있는 경우 사용
+                STATELESS 세션 쓰고 싶지 않을때
+                ALWAYS
+
+    ExceptionTranslationFilter : 인증/인가 예외 처리 필터
+        ExceptionTranslationFilter -> FilterSecurityInterceptor (AccessDecisionManager, AffirmativeBased)
+        밀접한 관계, ExceptionTranslationFilter가  FilterSecurityInterceptor 감싸고 실행
+
+        AuthenticationException 인증 예외
+            AuthenticationEntryPoint 인증 예외 처리 / 인증 가능한 page로 보낸다 / 인증이 없을 때
+
+        AccessDeniedException 인가 예외
+            AccessDeniedHandler 인가 예외 처리 / 403 error message 보낸다
+
+    FilterSecurityInterceptor : 인가 처리 필터
+        HTTP 리소스 시큐리티 처리를 담당하는 필터. AccessDecisionManager를 사용하여 인가를 처리한다.
+
+    RememberMeAuthenticationFilter
+        세션이 사라지거나 만료가 되더라도 쿠키 또는 DB를 사용하여 저장된 토큰 기반으로 인증을 지원하는 필터
+
+    Extra
+
+    메소드 security
+
+        웹에서 뿐만이 아니라 다른 곳에서도 spring security 사용 가능
+        https://www.baeldung.com/spring-security-method-security
+        @Secured와 @RollAllowed
+        메소드 호출 이전에 권한을 확인한다.
+        스프링 EL을 사용하지 못한다.
+
+        @PreAuthorize와 @PostAuthorize
+        메소드 호출 이전 @있다.

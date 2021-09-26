@@ -38,6 +38,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-data</artifactId>
+        </dependency>
         <!--  thyleaf 확장팩 spring boot 사용시 따로 설정할 필요 x-->
         <dependency>
             <groupId>org.thymeleaf.extras</groupId>

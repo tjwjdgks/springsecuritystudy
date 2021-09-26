@@ -1,6 +1,7 @@
 package seo.study.springsecurity.form;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -9,6 +10,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import seo.study.springsecurity.account.AccountContext;
 import seo.study.springsecurity.account.AccountRepository;
+import seo.study.springsecurity.account.UserAccount;
+import seo.study.springsecurity.book.BookRepository;
 import seo.study.springsecurity.common.SecurityLogger;
 
 import java.security.Principal;
@@ -23,13 +26,18 @@ public class SampleController {
     @Autowired
     AccountRepository accountRepository;
 
+    @Autowired
+    BookRepository bookRepository;
+
+    // @AuthenticationPrincipal example
     @GetMapping("/")
-    public String index(Model model, Principal principal){
-        if(principal == null){
+    //public String index(Model model, @CurrentUser Account account){ // 에노테이션 방법
+    public String index(Model model, @AuthenticationPrincipal UserAccount userAccount){
+        if(userAccount == null){
             model.addAttribute("message", "Hello spring security");
         }
         else{
-            model.addAttribute("message", "Hello " + principal.getName());
+            model.addAttribute("message", "Hello " + userAccount.getUsername());
         }
         return "index";
     }
@@ -53,6 +61,7 @@ public class SampleController {
     @GetMapping("/user")
     public String user(Model model, Principal principal){
         model.addAttribute("message", "Hello User, " + principal.getName());
+        model.addAttribute("books",bookRepository.findCurrentUserBooks());
         return "user";
     }
 

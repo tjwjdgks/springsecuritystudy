@@ -275,3 +275,10 @@
 
         @PreAuthorize와 @PostAuthorize
         메소드 호출 이전 @있다.
+
+    스프링 데이터 연동
+
+
+    * spring handler argument
+        HandlerMethodArgumentResolver
+        https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-ann-arguments
